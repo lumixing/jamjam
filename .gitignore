@@ -4,5 +4,6 @@
 !bridge/event
 !client
 !spotify
+!optimizer
 !*.odin
 !*.ttf
