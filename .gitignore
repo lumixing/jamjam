@@ -1,0 +1,6 @@
+*
+!.gitignore
+!client
+!spotify
+!*.odin
+!*.ttf
