@@ -1,4 +1,4 @@
-package client
+package cliend
 
 DISABLE_DOCKING :: #config(DISABLE_DOCKING, false)
 

@@ -2,7 +2,7 @@
 !.gitignore
 !bridge
 !bridge/event
-!client
+!cliend
 !spotify
 !optimizer
 !*.odin
