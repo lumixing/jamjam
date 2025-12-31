@@ -1,88 +1,45 @@
 package client
 
-DISABLE_DOCKING :: #config(DISABLE_DOCKING, false)
+import "core:fmt"
+import "core:os/os2"
+import win "core:sys/windows"
+import "core:encoding/cbor"
 
-import im "../odin-imgui"
-import "../odin-imgui/imgui_impl_glfw"
-import "../odin-imgui/imgui_impl_opengl3"
-
-import "vendor:glfw"
-import gl "vendor:OpenGL"
+import "../bridge/event"
 
 main :: proc() {
-	assert(cast(bool)glfw.Init())
-	defer glfw.Terminate()
-
-	glfw.WindowHint(glfw.CONTEXT_VERSION_MAJOR, 3)
-	glfw.WindowHint(glfw.CONTEXT_VERSION_MINOR, 2)
-	glfw.WindowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
-	glfw.WindowHint(glfw.OPENGL_FORWARD_COMPAT, 1) // i32(true)
-
-	window := glfw.CreateWindow(1280, 720, "Dear ImGui GLFW+OpenGL3 example", nil, nil)
-	assert(window != nil)
-	defer glfw.DestroyWindow(window)
-
-	glfw.MakeContextCurrent(window)
-	glfw.SwapInterval(1) // vsync
-
-	gl.load_up_to(3, 2, proc(p: rawptr, name: cstring) {
-		(cast(^rawptr)p)^ = glfw.GetProcAddress(name)
+	librespot, err := os2.process_start({
+		command = {
+			"librespot.exe",
+			"-o bridge.exe",
+		}
 	})
-
-	im.CHECKVERSION()
-	im.CreateContext()
-	defer im.DestroyContext()
-	io := im.GetIO()
-	io.ConfigFlags += {.NavEnableKeyboard, .NavEnableGamepad}
-	when !DISABLE_DOCKING {
-		io.ConfigFlags += {.DockingEnable}
-		// io.ConfigFlags += {.ViewportsEnable}
-
-		style := im.GetStyle()
-		style.WindowRounding = 0
-		style.Colors[im.Col.WindowBg].w = 1
+	assert(err == nil)
+	defer {
+		err := os2.process_kill(librespot)
+		assert(err == nil)
+		err = os2.process_close(librespot)
+		assert(err == nil)
 	}
 
-    im.FontAtlas_AddFontFromFileTTF(io.Fonts, "Inter-Regular.ttf", 20)
+	// ui_init()
+	// defer ui_deinit()
+	
+	// ui_loop()
 
-	im.StyleColorsDark()
+	for {
+		h := win.CreateFileW("\\\\.\\pipe\\jamjambridge", win.GENERIC_READ, 0, nil, win.OPEN_EXISTING, 0, nil)
+		if h == win.INVALID_HANDLE do continue
+		buf: [4096]u8
+		bytes_read: u32
+		ok := win.ReadFile(h, raw_data(buf[:]), 4096, &bytes_read, nil)
+		if !ok do continue
+		fmt.println(ok, bytes_read, string(buf[:bytes_read]))
 
-	imgui_impl_glfw.InitForOpenGL(window, true)
-	defer imgui_impl_glfw.Shutdown()
-	imgui_impl_opengl3.Init("#version 150")
-	defer imgui_impl_opengl3.Shutdown()
+		player_event: event.PlayerEvent
+		err := cbor.unmarshal(buf[:bytes_read], &player_event)
+		assert(err == nil)
 
-	for !glfw.WindowShouldClose(window) {
-		glfw.PollEvents()
-
-		imgui_impl_opengl3.NewFrame()
-		imgui_impl_glfw.NewFrame()
-		im.NewFrame()
-
-        im.DockSpaceOverViewport()
-		im.ShowDemoWindow()
-
-		if im.Begin("Window containing a quit button") {
-			if im.Button("The quit button in question") {
-				glfw.SetWindowShouldClose(window, true)
-			}
-		}
-		im.End()
-
-		im.Render()
-		display_w, display_h := glfw.GetFramebufferSize(window)
-		gl.Viewport(0, 0, display_w, display_h)
-		gl.ClearColor(0, 0, 0, 1)
-		gl.Clear(gl.COLOR_BUFFER_BIT)
-		imgui_impl_opengl3.RenderDrawData(im.GetDrawData())
-
-		when !DISABLE_DOCKING {
-			backup_current_window := glfw.GetCurrentContext()
-			im.UpdatePlatformWindows()
-			im.RenderPlatformWindowsDefault()
-			glfw.MakeContextCurrent(backup_current_window)
-		}
-
-		glfw.SwapBuffers(window)
+		fmt.println(player_event)
 	}
 }
